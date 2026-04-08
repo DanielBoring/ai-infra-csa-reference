@@ -17,7 +17,7 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const APIM_ENDPOINT = process.env.APIM_ENDPOINT || '';
+const getApimEndpoint = () => process.env.APIM_ENDPOINT || '';
 
 // ---------------------------------------------------------------------------
 // GET /health — Health check endpoint for ACA probes
@@ -26,7 +26,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    apimConfigured: !!APIM_ENDPOINT,
+    apimConfigured: !!getApimEndpoint(),
   });
 });
 
@@ -48,7 +48,8 @@ app.post('/chat', async (req, res) => {
     });
   }
 
-  if (!APIM_ENDPOINT) {
+  const apimEndpoint = getApimEndpoint();
+  if (!apimEndpoint) {
     return res.status(503).json({
       error: {
         message: 'APIM_ENDPOINT is not configured. Set it in environment variables.',
@@ -58,7 +59,7 @@ app.post('/chat', async (req, res) => {
   }
 
   try {
-    const apimUrl = `${APIM_ENDPOINT}/chat/completions`;
+    const apimUrl = `${apimEndpoint}/chat/completions`;
 
     const response = await fetch(apimUrl, {
       method: 'POST',
@@ -96,7 +97,7 @@ app.post('/chat', async (req, res) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Chatbot server listening on port ${PORT}`);
-    console.log(`APIM endpoint: ${APIM_ENDPOINT || '(not configured)'}`);
+    console.log(`APIM endpoint: ${getApimEndpoint() || '(not configured)'}`);
   });
 }
 
