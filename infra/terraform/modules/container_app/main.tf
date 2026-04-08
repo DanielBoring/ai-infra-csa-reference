@@ -55,7 +55,7 @@ resource "azurerm_container_app" "this" {
         value = var.identity_client_id
       }
       env {
-        name      = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         secret_name = "appinsights-cs"
       }
       env {
