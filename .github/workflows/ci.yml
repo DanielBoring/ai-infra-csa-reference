@@ -1,0 +1,89 @@
+# ---------------------------------------------------------------------------
+# CI Workflow — AI Infrastructure CSA Reference
+# Runs on every push and PR to validate IaC and app code.
+#
+# Jobs:
+#   1. bicep-validate    — Builds and validates Bicep templates
+#   2. terraform-validate — Formats, validates, and plans Terraform
+#   3. app-test          — Runs Node.js unit tests
+# ---------------------------------------------------------------------------
+
+name: CI — Validate & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ----- Bicep Validation -----
+  bicep-validate:
+    name: Bicep Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Bicep Build (compile check)
+        run: az bicep build --file infra/bicep/main.bicep --stdout > /dev/null
+
+      - name: Bicep Lint
+        run: az bicep lint --file infra/bicep/main.bicep
+        continue-on-error: true # Lint warnings shouldn't fail CI
+
+  # ----- Terraform Validation -----
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ----- Node.js Unit Tests -----
+  app-test:
+    name: App Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Install test dependencies
+        working-directory: tests/unit
+        run: npm install
+
+      - name: Run unit tests
+        working-directory: tests/unit
+        run: npm test

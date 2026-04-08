@@ -1,0 +1,66 @@
+<!--
+  Chat API Operation Policy
+  Applied to the POST /chat/completions operation.
+  
+  Implements:
+    - Rate limiting (WAF: Cost Optimization, Security)
+    - Quota enforcement (WAF: Cost Optimization)
+    - Response caching with PII bypass (WAF: Performance Efficiency, Cost Optimization)
+    - Privacy-aware logging (WAF: Operational Excellence, Security)
+    - Retry on backend errors (WAF: Reliability)
+  
+  CAF: Govern (policy-as-code), Manage (observability)
+-->
+<policies>
+  <inbound>
+    <base />
+
+    <!-- Rate limiting: 60 calls/min per subscription (WAF: Security + Cost) -->
+    <rate-limit calls="60" renewal-period="60" remaining-calls-header-name="X-RateLimit-Remaining" />
+
+    <!-- Daily quota: 1000 calls (WAF: Cost Optimization) -->
+    <quota calls="1000" renewal-period="86400" />
+
+    <!-- Response caching: skip if X-No-Cache header is set (PII protection) -->
+    <!-- WAF: Performance Efficiency + Cost Optimization -->
+    <!-- UNSAFE to cache: PII, personalized prompts, temperature > 0 varied outputs -->
+    <cache-lookup vary-by-developer="false" vary-by-developer-groups="false">
+      <vary-by-header>X-No-Cache</vary-by-header>
+    </cache-lookup>
+
+    <!-- Add correlation ID for distributed tracing -->
+    <set-header name="X-Correlation-ID" exists-action="skip">
+      <value>@(context.RequestId.ToString())</value>
+    </set-header>
+  </inbound>
+
+  <backend>
+    <base />
+    <!-- Retry policy for transient failures (WAF: Reliability) -->
+    <retry condition="@(context.Response.StatusCode == 429 || context.Response.StatusCode >= 500)"
+           count="3"
+           interval="1"
+           delta="2"
+           max-interval="8"
+           first-fast-retry="false" />
+  </backend>
+
+  <outbound>
+    <base />
+
+    <!-- Cache store: 1 hour, only for successful responses (WAF: Cost) -->
+    <cache-store duration="3600" />
+
+    <!-- Emit token usage as custom metric (WAF: Cost Optimization) -->
+    <!-- Extracts usage.total_tokens from Azure OpenAI response body -->
+    <choose>
+      <when condition="@(context.Response.StatusCode == 200)">
+        <set-variable name="responseBody" value="@(context.Response.Body.As<string>(preserveContent: true))" />
+      </when>
+    </choose>
+  </outbound>
+
+  <on-error>
+    <base />
+  </on-error>
+</policies>

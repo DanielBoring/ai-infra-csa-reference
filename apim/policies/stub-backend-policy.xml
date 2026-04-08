@@ -1,0 +1,69 @@
+<!--
+  Stub Backend Policy (Mock Response)
+  Returns a valid Azure OpenAI Chat Completions response without calling any backend.
+  
+  This is the DEFAULT backend when aiFoundryEndpoint is not configured.
+  
+  To upgrade to a real endpoint:
+    1. Set aiFoundryEndpoint parameter in IaC
+    2. Remove or override this policy
+    3. Add authentication-managed-identity policy for the real backend
+  
+  See README.md §9.4 "Upgrade to Real Azure AI Foundry Endpoint"
+  
+  CAF: Adopt (zero-dependency deployment)
+  WAF: Operational Excellence (validates full wiring without prerequisites)
+-->
+<policies>
+  <inbound>
+    <base />
+  </inbound>
+
+  <backend>
+    <!-- Mock response — no backend call -->
+    <return-response>
+      <set-status code="200" reason="OK" />
+      <set-header name="Content-Type" exists-action="override">
+        <value>application/json</value>
+      </set-header>
+      <set-body>@{
+        var requestBody = context.Request.Body.As<JObject>(preserveContent: true);
+        var messages = requestBody?["messages"] as JArray;
+        var lastMessage = messages?.Last?["content"]?.ToString() ?? "Hello";
+        
+        var responseId = "chatcmpl-stub-" + context.RequestId.ToString().Substring(0, 8);
+        var timestamp = (int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+        
+        return new JObject(
+          new JProperty("id", responseId),
+          new JProperty("object", "chat.completion"),
+          new JProperty("created", timestamp),
+          new JProperty("model", "gpt-4o-stub"),
+          new JProperty("choices", new JArray(
+            new JObject(
+              new JProperty("index", 0),
+              new JProperty("message", new JObject(
+                new JProperty("role", "assistant"),
+                new JProperty("content", "[STUB] This is a mock response from the Foundry API stub. Your message was: " + lastMessage + ". To get real AI responses, configure a real Azure AI Foundry endpoint. See the README for upgrade instructions.")
+              )),
+              new JProperty("finish_reason", "stop")
+            )
+          )),
+          new JProperty("usage", new JObject(
+            new JProperty("prompt_tokens", 10),
+            new JProperty("completion_tokens", 42),
+            new JProperty("total_tokens", 52)
+          ))
+        ).ToString();
+      }</set-body>
+    </return-response>
+  </backend>
+
+  <outbound>
+    <base />
+  </outbound>
+
+  <on-error>
+    <base />
+  </on-error>
+</policies>

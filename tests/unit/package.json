@@ -1,0 +1,11 @@
+{
+  "name": "ai-infra-chatbot-tests",
+  "version": "1.0.0",
+  "description": "Tests for AI Infrastructure CSA Reference chatbot",
+  "scripts": {
+    "test": "jest --verbose --forceExit"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
