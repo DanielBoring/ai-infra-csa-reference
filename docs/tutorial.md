@@ -51,6 +51,78 @@ You (HTTP request)
 └─────────────────┘
 ```
 
+### Full architecture diagram
+
+The diagram below shows every Azure resource that gets deployed and how they connect. Solid lines are runtime data flows; dotted lines are control-plane relationships (identity, logging, configuration).
+
+```mermaid
+graph TB
+    classDef compute fill:#4a90d9,stroke:#2c5f8a,color:#fff
+    classDef gateway fill:#e8833a,stroke:#b5622a,color:#fff
+    classDef security fill:#d94a7a,stroke:#a63360,color:#fff
+    classDef monitoring fill:#50b848,stroke:#3a8a35,color:#fff
+    classDef identity fill:#9b59b6,stroke:#7d3c98,color:#fff
+    classDef user fill:#555,stroke:#333,color:#fff
+
+    User["👤 User / curl"]:::user
+
+    subgraph RG["Resource Group: rg-ai-infra-ref-dev"]
+        direction TB
+
+        subgraph Compute["Compute"]
+            ACAEnv["ACA Environment<br/><i>acaenv-ai-infra-ref-dev</i><br/>Consumption plan"]:::compute
+            ACA["Container App<br/><i>app-ai-infra-ref-dev</i><br/>Node.js chatbot<br/>scales 0→5 replicas"]:::compute
+        end
+
+        subgraph Gateway["API Gateway"]
+            APIM["API Management<br/><i>apim-ai-infra-ref-dev</i><br/>Consumption tier"]:::gateway
+            Stub["Stub Backend<br/><i>mock-response policy</i><br/>OpenAI-compatible"]:::gateway
+        end
+
+        subgraph SecurityLayer["Security"]
+            KV["Key Vault<br/><i>kvaiinfrarefdev</i><br/>RBAC mode, purge-protected"]:::security
+        end
+
+        subgraph MonitoringLayer["Monitoring"]
+            LAW["Log Analytics Workspace<br/><i>law-ai-infra-ref-dev</i><br/>30-day retention"]:::monitoring
+            AppIns["Application Insights<br/><i>appi-ai-infra-ref-dev</i>"]:::monitoring
+        end
+
+        subgraph IdentityLayer["Identity & Access"]
+            MI["User-Assigned<br/>Managed Identity<br/><i>id-ai-infra-ref-dev</i>"]:::identity
+            RA1["RBAC: Key Vault<br/>Secrets User"]:::identity
+            RA2["RBAC: APIM Reader"]:::identity
+        end
+    end
+
+    User -- "POST /chat/completions" --> APIM
+    APIM -- "rate limit ✓<br/>cache lookup ✓" --> Stub
+    Stub -- "mock AI response" --> APIM
+    APIM -- "response + cache store" --> User
+
+    User -- "GET /health" --> ACA
+    ACA -- "POST to APIM_ENDPOINT" --> APIM
+
+    ACA -. "runs inside" .-> ACAEnv
+    ACA -. "authenticates via" .-> MI
+    MI --- RA1
+    MI --- RA2
+    RA1 -. "scoped to" .-> KV
+    RA2 -. "scoped to" .-> APIM
+
+    ACAEnv -. "logs to" .-> LAW
+    ACA -. "telemetry" .-> AppIns
+    AppIns -. "backed by" .-> LAW
+```
+
+| Color | Category | Resources |
+|-------|----------|-----------|
+| 🔵 Blue | Compute | ACA Environment (Consumption plan) + Container App (Node.js, 0→5 replicas) |
+| 🟠 Orange | API Gateway | APIM (Consumption tier) with stub backend (mock-response policy) |
+| 🔴 Pink | Security | Key Vault (RBAC mode, purge-protected, soft delete) |
+| 🟢 Green | Monitoring | Log Analytics Workspace (30-day retention) + Application Insights |
+| 🟣 Purple | Identity | User-Assigned Managed Identity + 2 scoped RBAC role assignments |
+
 ### Who owns what?
 
 In real projects, there are two types of engineers:
