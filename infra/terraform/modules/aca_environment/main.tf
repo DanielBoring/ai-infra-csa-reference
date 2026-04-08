@@ -21,14 +21,14 @@ variable "infrastructure_subnet_id" {
 }
 
 resource "azurerm_container_app_environment" "this" {
-  name                       = var.name
-  location                   = var.location
-  resource_group_name        = var.resource_group_name
-  tags                       = var.tags
-  log_analytics_workspace_id = var.log_analytics_id
-  infrastructure_subnet_id   = var.enable_vnet ? var.infrastructure_subnet_id : null
+  name                           = var.name
+  location                       = var.location
+  resource_group_name            = var.resource_group_name
+  tags                           = var.tags
+  log_analytics_workspace_id     = var.log_analytics_id
+  infrastructure_subnet_id       = var.enable_vnet ? var.infrastructure_subnet_id : null
   internal_load_balancer_enabled = var.enable_vnet
-  zone_redundancy_enabled    = false
+  zone_redundancy_enabled        = false
 }
 
 output "id" { value = azurerm_container_app_environment.this.id }

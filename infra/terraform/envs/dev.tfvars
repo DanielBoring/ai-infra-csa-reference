@@ -14,7 +14,7 @@ data_classification = "general"
 enable_private_networking = false
 
 # APIM: Consumption for dev (ADR-005)
-apim_sku_name       = "Consumption_0"
+apim_sku_name        = "Consumption_0"
 apim_publisher_email = "admin@contoso.com"
 apim_publisher_name  = "AI Infra CSA Reference"
 
