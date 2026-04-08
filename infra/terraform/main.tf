@@ -102,13 +102,13 @@ module "apim" {
 module "aca_environment" {
   source = "./modules/aca_environment"
 
-  name                   = "acaenv-${local.name_suffix}"
-  location               = var.location
-  resource_group_name    = data.azurerm_resource_group.main.name
-  tags                   = local.tags
-  log_analytics_id       = module.log_analytics.id
-  log_analytics_key      = module.log_analytics.primary_shared_key
-  enable_vnet            = var.enable_private_networking
+  name                     = "acaenv-${local.name_suffix}"
+  location                 = var.location
+  resource_group_name      = data.azurerm_resource_group.main.name
+  tags                     = local.tags
+  log_analytics_id         = module.log_analytics.id
+  log_analytics_key        = module.log_analytics.primary_shared_key
+  enable_vnet              = var.enable_private_networking
   infrastructure_subnet_id = var.enable_private_networking ? module.vnet[0].aca_subnet_id : null
 }
 
@@ -119,17 +119,17 @@ module "aca_environment" {
 module "container_app" {
   source = "./modules/container_app"
 
-  name                          = "app-${local.name_suffix}"
-  location                      = var.location
-  resource_group_name           = data.azurerm_resource_group.main.name
-  tags                          = local.tags
-  environment_id                = module.aca_environment.id
-  identity_id                   = module.managed_identity.id
-  identity_client_id            = module.managed_identity.client_id
-  container_image               = var.container_image
-  min_replicas                  = var.aca_min_replicas
-  max_replicas                  = var.aca_max_replicas
-  apim_gateway_url              = module.apim.gateway_url
+  name                           = "app-${local.name_suffix}"
+  location                       = var.location
+  resource_group_name            = data.azurerm_resource_group.main.name
+  tags                           = local.tags
+  environment_id                 = module.aca_environment.id
+  identity_id                    = module.managed_identity.id
+  identity_client_id             = module.managed_identity.client_id
+  container_image                = var.container_image
+  min_replicas                   = var.aca_min_replicas
+  max_replicas                   = var.aca_max_replicas
+  apim_gateway_url               = module.apim.gateway_url
   app_insights_connection_string = module.app_insights.connection_string
 }
 
@@ -140,9 +140,9 @@ module "container_app" {
 module "role_assignments" {
   source = "./modules/role_assignments"
 
-  principal_id   = module.managed_identity.principal_id
-  key_vault_id   = module.key_vault.id
-  apim_id        = module.apim.id
+  principal_id = module.managed_identity.principal_id
+  key_vault_id = module.key_vault.id
+  apim_id      = module.apim.id
 }
 
 # ---------------------------------------------------------------------------
