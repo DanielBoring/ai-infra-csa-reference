@@ -1,0 +1,132 @@
+# .github/workflows/tutorial-qa.yml
+name: Tutorial QA — E2E Deploy & Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      iac_tool:
+        description: 'IaC tool to test'
+        required: true
+        default: 'bicep'
+        type: choice
+        options:
+          - bicep
+          - terraform
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG_NAME: rg-tutorial-qa-${{ github.run_id }}
+  LOCATION: eastus2
+
+jobs:
+  tutorial-qa:
+    name: Deploy → Test → Cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create Resource Group
+        run: az group create --name $RG_NAME --location $LOCATION
+
+      # ---- Bicep path ----
+      - name: Bicep Validate
+        if: inputs.iac_tool == 'bicep'
+        run: |
+          az deployment group validate \
+            --resource-group $RG_NAME \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/params/dev.bicepparam
+
+      - name: Bicep What-If
+        if: inputs.iac_tool == 'bicep'
+        run: |
+          az deployment group what-if \
+            --resource-group $RG_NAME \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/params/dev.bicepparam
+
+      - name: Bicep Deploy
+        if: inputs.iac_tool == 'bicep'
+        run: |
+          az deployment group create \
+            --resource-group $RG_NAME \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/params/dev.bicepparam \
+            --name tutorial-qa-${{ github.run_id }}
+
+      - name: Smoke Tests (Bicep)
+        if: inputs.iac_tool == 'bicep'
+        run: |
+          ACA_FQDN=$(az deployment group show \
+            --resource-group $RG_NAME \
+            --name tutorial-qa-${{ github.run_id }} \
+            --query properties.outputs.acaFqdn.value -o tsv)
+
+          APIM_URL=$(az deployment group show \
+            --resource-group $RG_NAME \
+            --name tutorial-qa-${{ github.run_id }} \
+            --query properties.outputs.apimGatewayUrl.value -o tsv)
+
+          echo "ACA FQDN: ${ACA_FQDN}"
+          echo "APIM URL: ${APIM_URL}"
+
+          # Wait for ACA cold start
+          sleep 30
+
+          bash tests/integration/smoke.sh "$ACA_FQDN" "$APIM_URL"
+
+      # ---- Terraform path ----
+      - name: Setup Terraform
+        if: inputs.iac_tool == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.6"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        if: inputs.iac_tool == 'terraform'
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Plan
+        if: inputs.iac_tool == 'terraform'
+        working-directory: infra/terraform
+        run: terraform plan -var-file=envs/dev.tfvars -out=tfplan
+
+      - name: Terraform Apply
+        if: inputs.iac_tool == 'terraform'
+        working-directory: infra/terraform
+        run: terraform apply tfplan
+
+      - name: Smoke Tests (Terraform)
+        if: inputs.iac_tool == 'terraform'
+        working-directory: infra/terraform
+        run: |
+          ACA_FQDN=$(terraform output -raw aca_fqdn)
+          APIM_URL=$(terraform output -raw apim_gateway_url)
+
+          echo "ACA FQDN: ${ACA_FQDN}"
+          echo "APIM URL: ${APIM_URL}"
+
+          sleep 30
+
+          bash ../../tests/integration/smoke.sh "$ACA_FQDN" "$APIM_URL"
+
+      - name: Terraform Destroy
+        if: always() && inputs.iac_tool == 'terraform'
+        working-directory: infra/terraform
+        run: terraform destroy -var-file=envs/dev.tfvars -auto-approve
+        continue-on-error: true
+
+      # ---- Always clean up ----
+      - name: Cleanup Resource Group
+        if: always()
+        run: az group delete --name $RG_NAME --yes --no-wait
