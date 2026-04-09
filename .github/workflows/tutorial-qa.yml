@@ -20,7 +20,6 @@ permissions:
 env:
   RG_NAME: rg-tutorial-qa-${{ github.run_id }}
   LOCATION: eastus2
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   tutorial-qa:
