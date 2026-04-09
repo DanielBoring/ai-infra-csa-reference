@@ -60,6 +60,55 @@ module service 'br/public:avm/res/api-management/service:0.14.1' = {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Explicit resources: operation + stub policy (AVM module does not support
+// inline operations, so we add them as child resources after the service
+// module has finished deploying).
+// ---------------------------------------------------------------------------
+
+resource apimService 'Microsoft.ApiManagement/service@2022-08-01' existing = {
+  name: name
+}
+
+// Re-declare the chat-api so we can set subscriptionRequired: false, which
+// allows smoke tests to call the API without a subscription key in dev/CI.
+resource chatApi 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
+  parent: apimService
+  name: 'chat-api'
+  dependsOn: [service]
+  properties: {
+    displayName: 'Chat API'
+    path: 'chat'
+    protocols: ['https']
+    serviceUrl: useStub ? '' : aiFoundryEndpoint
+    subscriptionRequired: false
+  }
+}
+
+// POST /completions operation
+resource postCompletionsOperation 'Microsoft.ApiManagement/service/apis/operations@2022-08-01' = {
+  parent: chatApi
+  name: 'post-completions'
+  properties: {
+    displayName: 'Create Chat Completion'
+    method: 'POST'
+    urlTemplate: '/completions'
+    description: 'Creates a chat completion. Returns a mock response when useStub=true.'
+  }
+}
+
+// Stub backend policy — returns a valid OpenAI-compatible mock 200 response
+// without hitting any real backend. Applied only when useStub=true (i.e., when
+// no real AI Foundry endpoint is configured).
+resource postCompletionsPolicy 'Microsoft.ApiManagement/service/apis/operations/policies@2022-08-01' = if (useStub) {
+  parent: postCompletionsOperation
+  name: 'policy'
+  properties: {
+    format: 'xml'
+    value: loadTextContent('../../apim/policies/stub-backend-policy.xml')
+  }
+}
+
 output resourceId string = service.outputs.resourceId
 output name string = service.outputs.name
 output gatewayUrl string = 'https://${name}.azure-api.net'
