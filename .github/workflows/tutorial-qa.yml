@@ -26,7 +26,7 @@ jobs:
     name: Deploy → Test → Cleanup
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Azure Login
         uses: azure/login@v2
@@ -86,7 +86,7 @@ jobs:
       # ---- Terraform path ----
       - name: Setup Terraform
         if: inputs.iac_tool == 'terraform'
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.6.6"
           terraform_wrapper: false

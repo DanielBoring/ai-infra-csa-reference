@@ -90,6 +90,30 @@ describe('Chatbot Server', () => {
       expect(res.body.error.type).toBe('invalid_request_error');
     });
 
+    it('should return 400 when message is missing role', async () => {
+      const res = await request(server, 'POST', '/chat', {
+        messages: [{ content: 'Hello' }],
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toMatch(/role/);
+    });
+
+    it('should return 400 when message has invalid role', async () => {
+      const res = await request(server, 'POST', '/chat', {
+        messages: [{ role: 'admin', content: 'Hello' }],
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toMatch(/role must be one of/);
+    });
+
+    it('should return 400 when message content is not a string', async () => {
+      const res = await request(server, 'POST', '/chat', {
+        messages: [{ role: 'user', content: 123 }],
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error.type).toBe('invalid_request_error');
+    });
+
     it('should forward request to APIM and return response', async () => {
       const mockResponse = {
         id: 'chatcmpl-test123',
@@ -133,7 +157,6 @@ describe('Chatbot Server', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 429,
-        text: async () => 'Rate limit exceeded',
       });
 
       const originalEnv = process.env.APIM_ENDPOINT;
@@ -146,6 +169,26 @@ describe('Chatbot Server', () => {
       process.env.APIM_ENDPOINT = originalEnv;
 
       expect(res.status).toBe(429);
+      expect(res.body.error.type).toBe('upstream_error');
+      expect(res.body.error.message).toBe('The request could not be completed.');
+    });
+
+    it('should map 5xx backend errors to 502', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      });
+
+      const originalEnv = process.env.APIM_ENDPOINT;
+      process.env.APIM_ENDPOINT = 'https://mock-apim.azure-api.net';
+
+      const res = await request(server, 'POST', '/chat', {
+        messages: [{ role: 'user', content: 'Hello' }],
+      });
+
+      process.env.APIM_ENDPOINT = originalEnv;
+
+      expect(res.status).toBe(502);
       expect(res.body.error.type).toBe('upstream_error');
     });
 
@@ -163,6 +206,7 @@ describe('Chatbot Server', () => {
 
       expect(res.status).toBe(502);
       expect(res.body.error.type).toBe('gateway_error');
+      expect(res.body.error.message).toBe('Unable to reach the backend service.');
     });
   });
 });

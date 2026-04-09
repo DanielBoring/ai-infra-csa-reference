@@ -24,6 +24,8 @@ paths:
       description: |
         Sends a chat message and returns an AI-generated completion.
         Compatible with Azure OpenAI Chat Completions API schema.
+      security:
+        - subscriptionKey: []
       requestBody:
         required: true
         content:
@@ -125,3 +127,10 @@ components:
           type: integer
         total_tokens:
           type: integer
+
+  securitySchemes:
+    subscriptionKey:
+      type: apiKey
+      in: header
+      name: Ocp-Apim-Subscription-Key
+      description: APIM subscription key required for all API calls.

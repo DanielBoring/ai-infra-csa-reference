@@ -22,6 +22,9 @@ param enableVnetIntegration bool = false
 @description('Subnet resource ID for VNet integration (required when enableVnetIntegration=true).')
 param vnetSubnetId string = ''
 
+@description('Enable zone redundancy (recommended for production).')
+param zoneRedundant bool = false
+
 module environment 'br/public:avm/res/app/managed-environment:0.8.0' = {
   name: '${name}-deploy'
   params: {
@@ -31,7 +34,7 @@ module environment 'br/public:avm/res/app/managed-environment:0.8.0' = {
     logAnalyticsWorkspaceResourceId: logAnalyticsWorkspaceId
     infrastructureSubnetId: enableVnetIntegration ? vnetSubnetId : ''
     internal: enableVnetIntegration
-    zoneRedundant: false
+    zoneRedundant: zoneRedundant
   }
 }
 

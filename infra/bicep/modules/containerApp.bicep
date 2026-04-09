@@ -79,7 +79,7 @@ module app 'br/public:avm/res/app/container-app:0.11.0' = {
     ]
     disableIngress: false
     ingressTargetPort: 3000
-    ingressTransport: 'auto'
+    ingressTransport: 'http'
     ingressExternal: true
   }
 }

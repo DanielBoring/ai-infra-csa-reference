@@ -3,15 +3,19 @@
   Applied to all APIs in the APIM instance.
   
   CAF: Govern (centralized policy enforcement)
-  WAF: Security (CORS, error handling), Operational Excellence (consistent behavior)
+  WAF: Security (CORS, error handling, authentication), Operational Excellence (consistent behavior)
 -->
 <policies>
   <inbound>
     <base />
-    <!-- CORS for development/testing -->
+    <!-- Require subscription key on all requests (WAF: Security) -->
+    <check-header name="Ocp-Apim-Subscription-Key" failed-check-httpcode="401" failed-check-error-message="Subscription key is required." ignore-case="true" />
+    <!-- CORS — restrict to known origins; update for your domain -->
     <cors allow-credentials="false">
       <allowed-origins>
-        <origin>*</origin>
+        <!-- Replace with your actual frontend origins -->
+        <origin>https://your-frontend.azurewebsites.net</origin>
+        <origin>http://localhost:3000</origin>
       </allowed-origins>
       <allowed-methods preflight-result-max-age="300">
         <method>GET</method>
@@ -21,7 +25,7 @@
       <allowed-headers>
         <header>Content-Type</header>
         <header>Authorization</header>
-        <header>X-No-Cache</header>
+        <header>Ocp-Apim-Subscription-Key</header>
       </allowed-headers>
     </cors>
   </inbound>
@@ -33,6 +37,16 @@
     <!-- Remove internal headers from responses -->
     <set-header name="X-Powered-By" exists-action="delete" />
     <set-header name="X-AspNet-Version" exists-action="delete" />
+    <!-- Security headers -->
+    <set-header name="X-Content-Type-Options" exists-action="override">
+      <value>nosniff</value>
+    </set-header>
+    <set-header name="X-Frame-Options" exists-action="override">
+      <value>DENY</value>
+    </set-header>
+    <set-header name="Strict-Transport-Security" exists-action="override">
+      <value>max-age=31536000; includeSubDomains</value>
+    </set-header>
   </outbound>
   <on-error>
     <base />

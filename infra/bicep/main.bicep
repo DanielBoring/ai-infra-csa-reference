@@ -79,6 +79,9 @@ param peSubnetPrefix string = '10.0.2.0/24'
 @description('Real Azure AI Foundry endpoint URL. Leave empty to use stub.')
 param aiFoundryEndpoint string = ''
 
+@description('Enable zone redundancy for ACA Environment (recommended for production).')
+param zoneRedundant bool = false
+
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
@@ -180,6 +183,7 @@ module acaEnvironment 'modules/acaEnvironment.bicep' = {
     logAnalyticsWorkspaceId: logAnalytics.outputs.resourceId
     enableVnetIntegration: enablePrivateNetworking
     vnetSubnetId: enablePrivateNetworking ? vnet!.outputs.acaSubnetId : ''
+    zoneRedundant: zoneRedundant
   }
 }
 

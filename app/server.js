@@ -14,7 +14,20 @@
 const express = require('express');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// ---------------------------------------------------------------------------
+// Security headers middleware
+// ---------------------------------------------------------------------------
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Cache-Control', 'no-store');
+  res.removeHeader('X-Powered-By');
+  next();
+});
 
 const PORT = process.env.PORT || 3000;
 
@@ -40,6 +53,7 @@ app.post('/chat', async (req, res) => {
   const { messages } = req.body;
   const apimEndpoint = process.env.APIM_ENDPOINT || '';
 
+  // Validate messages exists, is array, non-empty
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({
       error: {
@@ -49,10 +63,45 @@ app.post('/chat', async (req, res) => {
     });
   }
 
+  // Validate messages array size (prevent abuse)
+  if (messages.length > 100) {
+    return res.status(400).json({
+      error: {
+        message: 'Too many messages. Maximum is 100.',
+        type: 'invalid_request_error',
+      },
+    });
+  }
+
+  // Validate each message has required fields with correct types
+  for (const msg of messages) {
+    if (
+      typeof msg !== 'object' ||
+      msg === null ||
+      typeof msg.role !== 'string' ||
+      typeof msg.content !== 'string'
+    ) {
+      return res.status(400).json({
+        error: {
+          message: 'Each message must have a "role" (string) and "content" (string).',
+          type: 'invalid_request_error',
+        },
+      });
+    }
+    if (!['system', 'user', 'assistant'].includes(msg.role)) {
+      return res.status(400).json({
+        error: {
+          message: 'Message role must be one of: system, user, assistant.',
+          type: 'invalid_request_error',
+        },
+      });
+    }
+  }
+
   if (!apimEndpoint) {
     return res.status(503).json({
       error: {
-        message: 'APIM_ENDPOINT is not configured. Set it in environment variables.',
+        message: 'Backend is not configured.',
         type: 'configuration_error',
       },
     });
@@ -61,19 +110,25 @@ app.post('/chat', async (req, res) => {
   try {
     const apimUrl = `${apimEndpoint}/chat/completions`;
 
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    // Include subscription key if configured
+    if (process.env.APIM_SUBSCRIPTION_KEY) {
+      headers['Ocp-Apim-Subscription-Key'] = process.env.APIM_SUBSCRIPTION_KEY;
+    }
+
     const response = await fetch(apimUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ messages }),
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      return res.status(response.status).json({
+      return res.status(response.status >= 500 ? 502 : response.status).json({
         error: {
-          message: `APIM returned ${response.status}: ${errorBody}`,
+          message: 'The request could not be completed.',
           type: 'upstream_error',
         },
       });
@@ -81,10 +136,10 @@ app.post('/chat', async (req, res) => {
 
     const data = await response.json();
     return res.json(data);
-  } catch (err) {
+  } catch (_err) {
     return res.status(502).json({
       error: {
-        message: `Failed to reach APIM: ${err.message}`,
+        message: 'Unable to reach the backend service.',
         type: 'gateway_error',
       },
     });
@@ -97,7 +152,9 @@ app.post('/chat', async (req, res) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Chatbot server listening on port ${PORT}`);
-    console.log(`APIM endpoint: ${process.env.APIM_ENDPOINT || '(not configured)'}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`APIM endpoint: ${process.env.APIM_ENDPOINT || '(not configured)'}`);
+    }
   });
 }
 

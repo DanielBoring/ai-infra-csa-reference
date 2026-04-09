@@ -24,8 +24,10 @@
     <!-- Response caching: skip if X-No-Cache header is set (PII protection) -->
     <!-- WAF: Performance Efficiency + Cost Optimization -->
     <!-- UNSAFE to cache: PII, personalized prompts, temperature > 0 varied outputs -->
-    <cache-lookup vary-by-developer="false" vary-by-developer-groups="false">
+    <cache-lookup vary-by-developer="true" vary-by-developer-groups="false">
       <vary-by-header>X-No-Cache</vary-by-header>
+      <vary-by-header>Authorization</vary-by-header>
+      <vary-by-header>Ocp-Apim-Subscription-Key</vary-by-header>
     </cache-lookup>
 
     <!-- Add correlation ID for distributed tracing -->
