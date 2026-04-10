@@ -62,6 +62,22 @@ jobs:
             --parameters infra/bicep/params/dev.bicepparam \
             --name tutorial-qa-${{ github.run_id }}
 
+      - name: Dump deployment errors
+        if: failure() && inputs.iac_tool == 'bicep'
+        run: |
+          echo "=== Top-level deployment error ==="
+          az deployment group show \
+            --resource-group "$RG_NAME" \
+            --name "tutorial-qa-${{ github.run_id }}" \
+            --query "properties.error" -o jsonc || true
+
+          echo "=== Failed deployment operations ==="
+          az deployment operation group list \
+            --resource-group "$RG_NAME" \
+            --name "tutorial-qa-${{ github.run_id }}" \
+            --query "[?properties.provisioningState=='Failed'].{operation:properties.targetResource.resourceName,error:properties.statusMessage.error}" \
+            -o jsonc || true
+
       - name: Smoke Tests (Bicep)
         if: inputs.iac_tool == 'bicep'
         run: |
