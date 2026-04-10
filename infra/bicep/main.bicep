@@ -82,11 +82,18 @@ param aiFoundryEndpoint string = ''
 @description('Enable zone redundancy for ACA Environment (recommended for production).')
 param zoneRedundant bool = false
 
+@description('Optional unique suffix appended to globally-unique resource names (Key Vault, APIM) to prevent soft-delete/purge-protection collisions across repeated runs. Must be lowercase alphanumeric (no hyphens) and at most 8 characters to keep Key Vault names within the 24-character Azure limit. Leave empty to auto-generate a deterministic 8-character hash from the resource group ID.')
+@maxLength(8)
+param uniqueSuffix string = ''
+
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
 
 var nameSuffix = '${projectName}-${environmentName}'
+// uniqueString returns a 13-char lowercase alphanumeric hash; we use the first
+// 8 characters so the Key Vault name stays within the 24-char limit.
+var resolvedUniqueSuffix = empty(uniqueSuffix) ? substring(uniqueString(resourceGroup().id), 0, 8) : uniqueSuffix
 var useStub = empty(aiFoundryEndpoint)
 var tags = {
   environment: environmentName
@@ -145,7 +152,7 @@ module appInsights 'modules/appInsights.bicep' = {
 module keyVault 'modules/keyVault.bicep' = {
   name: 'key-vault'
   params: {
-    name: 'kv-${replace(nameSuffix, '-', '')}'
+    name: 'kv-${replace(nameSuffix, '-', '')}${resolvedUniqueSuffix}'
     location: location
     tags: tags
   }
@@ -158,7 +165,7 @@ module keyVault 'modules/keyVault.bicep' = {
 module apim 'modules/apim.bicep' = {
   name: 'api-management'
   params: {
-    name: 'apim-${nameSuffix}'
+    name: 'apim-${nameSuffix}-${resolvedUniqueSuffix}'
     location: location
     tags: tags
     skuName: apimSkuName
