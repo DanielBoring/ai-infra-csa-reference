@@ -18,8 +18,10 @@ locals {
   }
 }
 
-data "azurerm_resource_group" "main" {
-  name = var.resource_group_name
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+  tags     = local.tags
 }
 
 # ---------------------------------------------------------------------------
@@ -31,7 +33,7 @@ module "managed_identity" {
 
   name                = "id-${local.name_suffix}"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
 }
 
@@ -44,7 +46,7 @@ module "log_analytics" {
 
   name                = "law-${local.name_suffix}"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
   retention_in_days   = var.log_retention_days
 }
@@ -58,7 +60,7 @@ module "app_insights" {
 
   name                = "appi-${local.name_suffix}"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
   workspace_id        = module.log_analytics.id
 }
@@ -72,7 +74,7 @@ module "key_vault" {
 
   name                = "kv${replace(local.name_suffix, "-", "")}"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
 }
 
@@ -85,7 +87,7 @@ module "apim" {
 
   name                = "apim-${local.name_suffix}"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
   sku_name            = var.apim_sku_name
   publisher_email     = var.apim_publisher_email
@@ -104,7 +106,7 @@ module "aca_environment" {
 
   name                     = "acaenv-${local.name_suffix}"
   location                 = var.location
-  resource_group_name      = data.azurerm_resource_group.main.name
+  resource_group_name      = azurerm_resource_group.main.name
   tags                     = local.tags
   log_analytics_id         = module.log_analytics.id
   log_analytics_key        = module.log_analytics.primary_shared_key
@@ -121,7 +123,7 @@ module "container_app" {
 
   name                           = "app-${local.name_suffix}"
   location                       = var.location
-  resource_group_name            = data.azurerm_resource_group.main.name
+  resource_group_name            = azurerm_resource_group.main.name
   tags                           = local.tags
   environment_id                 = module.aca_environment.id
   identity_id                    = module.managed_identity.id
@@ -155,7 +157,7 @@ module "vnet" {
 
   name                = "vnet-${local.name_suffix}"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
   address_prefix      = var.vnet_address_prefix
   aca_subnet_prefix   = var.aca_subnet_prefix
