@@ -82,7 +82,8 @@ param aiFoundryEndpoint string = ''
 @description('Enable zone redundancy for ACA Environment (recommended for production).')
 param zoneRedundant bool = false
 
-@description('Optional unique suffix appended to globally-unique resource names (Key Vault, APIM) to prevent soft-delete/purge-protection collisions across repeated runs. Leave empty to auto-generate a deterministic 8-character hash from the resource group ID.')
+@description('Optional unique suffix appended to globally-unique resource names (Key Vault, APIM) to prevent soft-delete/purge-protection collisions across repeated runs. Must be lowercase alphanumeric (no hyphens) and at most 8 characters to keep Key Vault names within the 24-character Azure limit. Leave empty to auto-generate a deterministic 8-character hash from the resource group ID.')
+@maxLength(8)
 param uniqueSuffix string = ''
 
 // ---------------------------------------------------------------------------
