@@ -13,7 +13,19 @@ param keyVaultName string
 @description('Name of the APIM instance (for scoped role assignment).')
 param apimName string
 
+// Reference existing resources for scoping — declared first so forward references
+// are never needed and the deterministic resource IDs are unambiguous.
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyVaultName
+}
+
+resource apimResource 'Microsoft.ApiManagement/service@2023-09-01-preview' existing = {
+  name: apimName
+}
+
 // Key Vault Secrets User — allows the MI to read secrets
+// Name is a deterministic GUID derived from scope + principalId + roleDefinitionId
+// so repeat deployments are idempotent and never produce name collisions.
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(keyVault.id, managedIdentityPrincipalId, '4633458b-17de-408a-b874-0445c86b69e6')
   scope: keyVault
@@ -25,6 +37,7 @@ resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =
 }
 
 // API Management Service Reader — allows MI to discover APIM
+// Name is a deterministic GUID derived from scope + principalId + roleDefinitionId.
 resource apimRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(apimResource.id, managedIdentityPrincipalId, 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
   scope: apimResource
@@ -33,13 +46,4 @@ resource apimRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01'
     principalId: managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
-}
-
-// Reference existing resources for scoping
-resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
-  name: keyVaultName
-}
-
-resource apimResource 'Microsoft.ApiManagement/service@2023-09-01-preview' existing = {
-  name: apimName
 }
